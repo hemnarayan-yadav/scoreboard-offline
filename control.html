@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kabaddi Scoreboard - Control Panel</title>
+<style>
+  :root{
+    --bg:#0b0e14;
+    --panel:#12161f;
+    --line:rgba(255,255,255,0.08);
+    --team-a:#ff9100;
+    --team-b:#00e5ff;
+    --text:#eef1f5;
+    --muted:#8a94a3;
+    --warn:#ffe000;
+    --danger:#ff2b2b;
+    --ok:#3ddc84;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{ min-height:100%; background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; }
+  body{ padding:20px; max-width:1120px; margin:0 auto; }
+
+  h1{ font-size:1.55rem; margin-bottom:14px; }
+
+  .preview{
+    display:flex; align-items:center; justify-content:space-between;
+    background:#000; border-radius:12px; padding:16px 24px; margin-bottom:24px;
+    border:1px solid var(--line);
+  }
+  .preview .side{ text-align:center; flex:1; }
+  .preview .name{ font-size:0.85rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:4px; }
+  .preview .a .name{ color:var(--team-a); }
+  .preview .b .name{ color:var(--team-b); }
+  .preview .score{ font-family:"SF Mono","Consolas",monospace; font-weight:900; font-size:2.6rem; }
+  .preview .a .score{ color:var(--team-a); }
+  .preview .b .score{ color:var(--team-b); }
+  .preview .mid{ text-align:center; padding:0 20px; }
+  .preview .clock{ font-family:"SF Mono","Consolas",monospace; font-weight:800; font-size:1.6rem; }
+  .preview .half{ font-size:0.7rem; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:2px; }
+  .preview .raid{ font-size:0.85rem; color:var(--warn); font-weight:700; margin-top:6px; }
+  .preview .status-pill{ display:inline-block; margin-top:8px; font-size:0.68rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; padding:3px 10px; border-radius:20px; border:1px solid var(--muted); color:var(--muted); }
+  .preview .status-pill.live{ color:#04140a; background:var(--ok); border-color:var(--ok); }
+  .preview .status-pill.completed{ color:#04140a; background:var(--warn); border-color:var(--warn); }
+
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .card h2{ font-size:0.95rem; margin-bottom:14px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
+
+  .name-input{
+    width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
+    background:#0b0e14; color:var(--text); font-size:1rem; font-weight:700; margin-bottom:14px;
+    text-transform:uppercase;
+  }
+  .card.a .name-input{ border-color:var(--team-a); color:var(--team-a); }
+  .card.b .name-input{ border-color:var(--team-b); color:var(--team-b); }
+  .name-input:disabled{ opacity:.5; }
+
+  .score-row{ display:flex; align-items:center; justify-content:center; gap:16px; }
+  .score-row .val{ font-family:"SF Mono","Consolas",monospace; font-weight:900; font-size:2.4rem; min-width:70px; text-align:center; }
+  .card.a .val{ color:var(--team-a); }
+  .card.b .val{ color:var(--team-b); }
+  .score-row button{
+    width:48px; height:48px; border-radius:50%; border:2px solid currentColor; background:transparent;
+    font-size:1.4rem; font-weight:700; cursor:pointer; color:inherit;
+  }
+  .card.a .score-row button{ color:var(--team-a); }
+  .card.b .score-row button{ color:var(--team-b); }
+  .score-row button:hover{ background:rgba(255,255,255,0.08); }
+
+  .half-card{ grid-column:span 1; }
+  .clock-action.active{ background:var(--ok); color:#04140a; border-color:var(--ok); }
+  .card-note{ color:var(--muted); font-size:.8rem; margin-top:10px; line-height:1.5; }
+
+  .btn-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  button.action{
+    padding:11px 18px; border-radius:8px; border:1px solid var(--line); background:#1a2030;
+    color:var(--text); font-size:0.9rem; font-weight:600; cursor:pointer;
+  }
+  button.action:hover:not(:disabled){ background:#20293c; }
+  button.action:disabled{ opacity:.35; cursor:not-allowed; }
+  button.action.primary{ background:var(--ok); color:#04140a; border-color:var(--ok); }
+  button.action.primary:hover:not(:disabled){ background:#33c476; }
+  button.action.warn{ background:var(--warn); color:#1a1400; border-color:var(--warn); }
+  button.action.danger{ background:transparent; color:var(--danger); border-color:var(--danger); }
+  button.action.done{ background:var(--ok); color:#04140a; border-color:var(--ok); }
+
+  .settings-label{ display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--text); }
+  .settings-input{
+    width:70px; padding:8px 10px; border-radius:7px; border:1px solid var(--line);
+    background:#0b0e14; color:var(--text); font-size:0.95rem; font-weight:700;
+    font-family:"SF Mono","Consolas",monospace;
+  }
+  .settings-input:disabled{ opacity:.5; }
+  .settings-static{ font-family:"SF Mono","Consolas",monospace; font-weight:700; color:var(--muted); }
+
+  .status-line{ margin-top:16px; font-size:0.8rem; color:var(--muted); display:flex; gap:16px; flex-wrap:wrap; }
+  .status-line span b{ color:var(--text); }
+
+  @media (max-width:720px){
+    body{ padding:8px; }
+    h1{ font-size:1.15rem; margin-bottom:8px; }
+    .preview{ padding:8px 10px; margin-bottom:8px; border-radius:8px; }
+    .preview .name{ font-size:.68rem; margin-bottom:2px; }
+    .preview .score{ font-size:1.9rem; }
+    .preview .mid{ padding:0 8px; }
+    .preview .clock{ font-size:1.15rem; }
+    .preview .half{ font-size:.58rem; }
+    .preview .raid{ font-size:.68rem; margin-top:2px; }
+    .grid{ grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+    .card{ padding:10px; border-radius:8px; }
+    .card h2{ font-size:.72rem; margin-bottom:8px; }
+    .half-card{ grid-column:auto; }
+    .name-input{ padding:7px 8px; margin-bottom:8px; font-size:.82rem; }
+    .score-row{ gap:6px; }
+    .score-row .val{ font-size:1.8rem; min-width:40px; }
+    .score-row button{ width:36px; height:36px; font-size:1.1rem; }
+    .btn-row{ width:100%; gap:6px; }
+    button.action{ flex:1 1 0; min-width:0; padding:8px 6px; font-size:.72rem; text-align:center; }
+    .settings-label{ flex:1 1 100%; justify-content:space-between; font-size:.74rem; gap:4px; }
+    .settings-input{ width:52px; padding:6px 5px; font-size:.78rem; }
+    .card-note{ font-size:.68rem; margin-top:6px; line-height:1.25; }
+    .status-line{ margin-top:8px; gap:8px; font-size:.64rem; }
+  }
+  @media (min-width:721px){
+    body{ max-width:1120px; padding:16px 20px; }
+    h1{ font-size:1.45rem; margin-bottom:12px; }
+    .preview{ padding:15px 28px; margin-bottom:14px; }
+    .preview .score{ font-size:2.8rem; }
+    .preview .clock{ font-size:1.7rem; }
+    .preview .raid{ margin-top:5px; font-size:.9rem; }
+    .grid{ gap:12px; margin-bottom:12px; }
+    .card{ padding:15px 18px; border-radius:10px; }
+    .card h2{ margin:0 0 12px; font-size:.9rem; }
+    .name-input{ width:58%; padding:10px 12px; margin:0 12px 0 0; font-size:1rem; }
+    .score-row{ display:inline-flex; gap:12px; vertical-align:middle; }
+    .score-row .val{ font-size:2.5rem; min-width:64px; }
+    .score-row button{ width:48px; height:48px; font-size:1.4rem; }
+    .btn-row{ display:flex; gap:10px; vertical-align:middle; }
+    button.action{ padding:12px 18px; font-size:.95rem; }
+    .settings-label{ font-size:.95rem; }
+    .settings-input{ width:70px; padding:8px 10px; font-size:.95rem; }
+    .card-note{ display:none; }
+    .status-line{ margin-top:6px; font-size:.68rem; }
+  }
+</style>
+</head>
+<body>
+
+  <h1>Scoreboard — Control Panel</h1>
+
+  <div class="preview">
+    <div class="side a">
+      <div class="name" id="pvNameA">TEAM A</div>
+      <div class="score" id="pvScoreA">0</div>
+    </div>
+    <div class="mid">
+      <div class="half" id="pvHalf">1ST HALF</div>
+      <div class="clock" id="pvClock">20:00</div>
+      <div class="raid" id="pvRaid">Raid: 30</div>
+      <div class="status-pill" id="statusPill">Not started</div>
+    </div>
+    <div class="side b">
+      <div class="name" id="pvNameB">TEAM B</div>
+      <div class="score" id="pvScoreB">0</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card a">
+      <h2>Team A</h2>
+      <input class="name-input" id="nameA" value="TEAM A" spellcheck="false">
+      <div class="score-row">
+        <button onclick="changeDisplayedScore('A',-1)">−</button>
+        <div class="val" id="scoreA">0</div>
+        <button onclick="changeDisplayedScore('A',1)">+</button>
+      </div>
+    </div>
+    <div class="card b">
+      <h2>Team B</h2>
+      <input class="name-input" id="nameB" value="TEAM B" spellcheck="false">
+      <div class="score-row">
+        <button onclick="changeDisplayedScore('B',-1)">−</button>
+        <div class="val" id="scoreB">0</div>
+        <button onclick="changeDisplayedScore('B',1)">+</button>
+      </div>
+    </div>
+
+    <div class="card half-card">
+      <h2>Match Settings</h2>
+      <div class="btn-row">
+        <label class="settings-label">Half length (minutes)
+          <input type="number" class="settings-input" id="halfMinInput" min="1" max="60" step="1">
+        </label>
+        <label class="settings-label">Raid clock
+          <span class="settings-static">30s (fixed)</span>
+        </label>
+      </div>
+      <div class="card-note">Half length can only be changed before the match goes live.</div>
+    </div>
+
+    <div class="card half-card">
+      <h2>Match Clock — <span id="halfText">1st Half</span></h2>
+      <div class="btn-row">
+        <button class="action clock-action" id="startFirstHalfBtn" onclick="startHalf(1)">Start 1st Half</button>
+        <button class="action clock-action" id="startSecondHalfBtn" onclick="startHalf(2)">Start 2nd Half</button>
+      </div>
+      <div class="card-note">Half buttons unlock once the match is live.</div>
+    </div>
+
+    <div class="card half-card">
+      <h2>Raid Clock</h2>
+      <div class="btn-row">
+        <button class="action warn" id="raidBtn" onclick="startOrClearRaid()">Start Raid</button>
+        <button class="action" id="stopRaidBtn" onclick="stopRaid()">Stop Raid</button>
+      </div>
+    </div>
+
+    <div class="card half-card">
+      <h2>Match Status</h2>
+      <div class="btn-row">
+        <button class="action primary" id="goLiveBtn" onclick="goLive()">Go Live</button>
+        <button class="action danger" id="completeBtn" onclick="completeMatch()">Complete Match</button>
+        <button class="action danger" id="clearAllBtn" onclick="resetAll()" disabled>Clear All</button>
+      </div>
+      <div class="card-note">Clear All unlocks only after the match is marked complete.</div>
+    </div>
+  </div>
+
+  <div class="status-line">
+    <span>Auto-save: <b id="saveIndicator">on</b></span>
+    <span>Display sync: <b id="syncIndicator">broadcasting</b></span>
+  </div>
+
+<script>
+  const STORAGE_KEY = 'kabaddi_scoreboard_state_v1';
+  const DEFAULT_HALF_MS = 20 * 60 * 1000;
+  const DEFAULT_RAID_MS = 30 * 1000;
+
+  let state = {
+    status: 'upcoming', // upcoming -> live -> completed
+    sideSwapped: false,
+    nameA: 'TEAM A', nameB: 'TEAM B',
+    scoreA: 0, scoreB: 0,
+    half: 1,
+    halfDurationMs: DEFAULT_HALF_MS,
+    raidDurationMs: DEFAULT_RAID_MS,
+    matchRunning: false, matchRemainingMs: DEFAULT_HALF_MS, matchEndAt: null,
+    raidRunning: false, raidRemainingMs: DEFAULT_RAID_MS, raidEndAt: null,
+    overlayText: null
+  };
+
+  let channel = null;
+  try{
+    channel = new BroadcastChannel('kabaddi_scoreboard_channel');
+    channel.onmessage = function(e){
+      if(e.data && e.data.type === 'requestState') broadcastState();
+    };
+  } catch(e){ /* BroadcastChannel not supported in this browser */ }
+
+  function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      document.getElementById('saveIndicator').textContent = 'saved ' + new Date().toLocaleTimeString();
+    } catch(e){
+      document.getElementById('saveIndicator').textContent = 'unavailable';
+    }
+  }
+  function broadcastState(){
+    saveState();
+    try{
+      channel.postMessage({type:'state', payload: state});
+      document.getElementById('syncIndicator').textContent = 'sent ' + new Date().toLocaleTimeString();
+    } catch(e){ document.getElementById('syncIndicator').textContent = 'no display connected'; }
+  }
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) state = Object.assign(state, JSON.parse(raw));
+    } catch(e){}
+  }
+
+  function formatTime(ms){
+    const totalSec = Math.max(0, Math.ceil(ms/1000));
+    const m = Math.floor(totalSec/60);
+    const s = totalSec % 60;
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+
+  function changeScore(team, delta){
+    if(state.status !== 'live') return;
+    if(team === 'A') state.scoreA = Math.max(0, state.scoreA + delta);
+    else state.scoreB = Math.max(0, state.scoreB + delta);
+    render(); broadcastState();
+  }
+  function displayedTeam(side){ return state.sideSwapped ? (side === 'A' ? 'B' : 'A') : side; }
+  function changeDisplayedScore(side, delta){ changeScore(displayedTeam(side), delta); }
+
+  function goLive(){
+    if(state.status !== 'upcoming') return;
+    state.status = 'live';
+    render(); broadcastState();
+  }
+
+  function startHalf(half){
+    if(state.status !== 'live' || state.matchRunning) return;
+    state.half = half;
+    state.sideSwapped = half === 2;
+    state.matchRemainingMs = state.halfDurationMs;
+    state.matchEndAt = Date.now() + state.matchRemainingMs;
+    state.matchRunning = true;
+    state.overlayText = null;
+    state.raidRunning = false; state.raidEndAt = null; state.raidRemainingMs = DEFAULT_RAID_MS;
+    render(); broadcastState();
+  }
+  function handleMatchEnd(){
+    state.matchRunning = false; state.matchEndAt = null; state.matchRemainingMs = 0;
+    state.overlayText = state.half === 1 ? 'HALF TIME' : 'FULL TIME';
+    beep(880,500);
+    render(); broadcastState();
+  }
+
+  function startOrClearRaid(){
+    if(state.status !== 'live') return;
+    if(state.raidRunning){
+      state.raidRunning = false; state.raidEndAt = null; state.raidRemainingMs = DEFAULT_RAID_MS;
+    } else {
+      state.raidRunning = true; state.raidRemainingMs = DEFAULT_RAID_MS; state.raidEndAt = Date.now() + DEFAULT_RAID_MS;
+    }
+    render(); broadcastState();
+  }
+  function stopRaid(){
+    if(state.status !== 'live') return;
+    state.raidRunning = false; state.raidEndAt = null; state.raidRemainingMs = DEFAULT_RAID_MS;
+    render(); broadcastState();
+  }
+  function handleRaidEnd(){
+    state.raidRunning = false; state.raidEndAt = null; state.raidRemainingMs = 0;
+    beep(660,400);
+    render(); broadcastState();
+  }
+
+  function completeMatch(){
+    if(state.status !== 'live') return;
+    state.status = 'completed';
+    state.matchRemainingMs = state.matchRunning ? Math.max(0, state.matchEndAt - Date.now()) : state.matchRemainingMs;
+    state.matchRunning = false; state.matchEndAt = null;
+    state.raidRemainingMs = state.raidRunning ? Math.max(0, state.raidEndAt - Date.now()) : state.raidRemainingMs;
+    state.raidRunning = false; state.raidEndAt = null;
+    state.overlayText = 'FULL TIME';
+    render(); broadcastState();
+  }
+
+  function resetAll(){
+    if(state.status !== 'completed') return;
+    if(!confirm('Sab kuch reset ho jayega (score, time, names). Half length wahi rahega. Confirm?')) return;
+    const keepHalf = state.halfDurationMs;
+    state = {
+      status: 'upcoming', sideSwapped: false,
+      nameA:'TEAM A', nameB:'TEAM B', scoreA:0, scoreB:0, half:1,
+      halfDurationMs: keepHalf, raidDurationMs: DEFAULT_RAID_MS,
+      matchRunning:false, matchRemainingMs:keepHalf, matchEndAt:null,
+      raidRunning:false, raidRemainingMs:DEFAULT_RAID_MS, raidEndAt:null,
+      overlayText:null
+    };
+    document.getElementById('nameA').value = state.nameA;
+    document.getElementById('nameB').value = state.nameB;
+    render(); broadcastState();
+  }
+
+  let audioCtx = null;
+  function beep(freq, duration){
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type='square'; osc.frequency.value=freq; gain.gain.value=0.08;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); setTimeout(()=>osc.stop(), duration);
+    } catch(e){}
+  }
+
+  document.getElementById('nameA').addEventListener('input', function(){
+    state['name' + displayedTeam('A')] = this.value.trim() || ('TEAM ' + displayedTeam('A'));
+    render(); broadcastState();
+  });
+  document.getElementById('nameB').addEventListener('input', function(){
+    state['name' + displayedTeam('B')] = this.value.trim() || ('TEAM ' + displayedTeam('B'));
+    render(); broadcastState();
+  });
+
+  document.getElementById('halfMinInput').addEventListener('change', function(){
+    const mins = Math.max(1, Math.min(60, parseFloat(this.value) || 20));
+    state.halfDurationMs = mins * 60 * 1000;
+    this.value = mins;
+    if(!state.matchRunning) state.matchRemainingMs = state.halfDurationMs;
+    render(); broadcastState();
+  });
+
+  function render(){
+    const leftTeam = displayedTeam('A');
+    const rightTeam = displayedTeam('B');
+    const leftName = state['name' + leftTeam];
+    const rightName = state['name' + rightTeam];
+    const leftScore = state['score' + leftTeam];
+    const rightScore = state['score' + rightTeam];
+
+    document.querySelector('.card.a h2').textContent = leftName;
+    document.querySelector('.card.b h2').textContent = rightName;
+    document.getElementById('nameA').value = leftName;
+    document.getElementById('nameB').value = rightName;
+    document.getElementById('scoreA').textContent = leftScore;
+    document.getElementById('scoreB').textContent = rightScore;
+    document.getElementById('pvScoreA').textContent = leftScore;
+    document.getElementById('pvScoreB').textContent = rightScore;
+    document.getElementById('pvNameA').textContent = leftName;
+    document.getElementById('pvNameB').textContent = rightName;
+    document.getElementById('pvHalf').textContent = state.half === 1 ? '1ST HALF' : '2ND HALF';
+    document.getElementById('halfText').textContent = state.half === 1 ? '1st Half' : '2nd Half';
+
+    let matchMs = state.matchRunning ? Math.max(0, state.matchEndAt - Date.now()) : state.matchRemainingMs;
+    if(state.matchRunning && matchMs <= 0){ handleMatchEnd(); return; }
+    document.getElementById('pvClock').textContent = formatTime(matchMs);
+
+    let raidMs = state.raidRunning ? Math.max(0, state.raidEndAt - Date.now()) : state.raidRemainingMs;
+    if(state.raidRunning && raidMs <= 0){ handleRaidEnd(); return; }
+    document.getElementById('pvRaid').textContent = 'Raid: ' + Math.ceil(raidMs/1000);
+
+    const raidBtn = document.getElementById('raidBtn');
+    raidBtn.textContent = state.raidRunning ? 'Clear Raid' : 'Start Raid';
+    raidBtn.disabled = state.status !== 'live';
+    document.getElementById('stopRaidBtn').disabled = state.status !== 'live';
+
+    const pill = document.getElementById('statusPill');
+    pill.textContent = state.status === 'live' ? 'Live' : state.status === 'completed' ? 'Completed' : 'Not started';
+    pill.className = 'status-pill ' + state.status;
+
+    const goLiveBtn = document.getElementById('goLiveBtn');
+    goLiveBtn.disabled = state.status !== 'upcoming';
+    goLiveBtn.textContent = state.status === 'upcoming' ? 'Go Live' : 'Match Live';
+    goLiveBtn.classList.toggle('done', state.status !== 'upcoming');
+
+    const completeBtn = document.getElementById('completeBtn');
+    completeBtn.disabled = state.status !== 'live';
+    completeBtn.textContent = state.status === 'completed' ? 'Match Completed' : 'Complete Match';
+
+    document.getElementById('clearAllBtn').disabled = state.status !== 'completed';
+
+    document.getElementById('halfMinInput').disabled = state.status !== 'upcoming';
+    document.getElementById('nameA').disabled = state.status === 'completed';
+    document.getElementById('nameB').disabled = state.status === 'completed';
+
+    const firstHalfButton = document.getElementById('startFirstHalfBtn');
+    const secondHalfButton = document.getElementById('startSecondHalfBtn');
+    firstHalfButton.classList.toggle('active', state.half === 1 && state.matchRunning);
+    secondHalfButton.classList.toggle('active', state.half === 2 && state.matchRunning);
+    firstHalfButton.disabled = state.status !== 'live' || state.matchRunning || state.half !== 1 || state.matchRemainingMs === 0;
+    secondHalfButton.disabled = state.status !== 'live' || state.matchRunning || state.half !== 1 || state.matchRemainingMs > 0;
+  }
+
+  loadState();
+  document.getElementById('nameA').value = state.nameA;
+  document.getElementById('nameB').value = state.nameB;
+  document.getElementById('halfMinInput').value = state.halfDurationMs / 60000;
+  render();
+  broadcastState();
+  setInterval(render, 250);
+</script>
+</body>
+</html>

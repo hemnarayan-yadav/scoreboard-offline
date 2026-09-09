@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kabaddi Scoreboard - Display</title>
+<style>
+  :root{
+    --bg:#000000;
+    --line:rgba(255,255,255,0.08);
+    --team-a:#ff9100;
+    --team-b:#00e5ff;
+    --text:#ffffff;
+    --muted:#8a94a3;
+    --warn:#ffe000;
+    --danger:#ff2b2b;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{ height:100%; background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; overflow:hidden; }
+  body{ display:flex; flex-direction:column; height:100vh; }
+  .board-wrap{ position:relative; flex:1; display:flex; min-height:0; background:#000; }
+
+  .team{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(10px,2vh,28px); position:relative; padding:20px; background:#000; }
+  .team.a::after, .team.b::after{ content:""; position:absolute; top:0; bottom:0; width:6px; }
+  .team.a::after{ right:0; background:var(--team-a); }
+  .team.b::after{ left:0; background:var(--team-b); }
+
+  .outline-text{
+    text-shadow:
+      -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000,
+      -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000,
+      0 0 8px rgba(0,0,0,0.6);
+  }
+
+  .team-name{ font-size:clamp(1.3rem, 2.6vw, 2.2rem); font-weight:800; letter-spacing:0.06em; text-transform:uppercase; text-align:center; max-width:90%; }
+  .team.a .team-name{ color:var(--team-a); }
+  .team.b .team-name{ color:var(--team-b); }
+
+  .team-score{ font-family:"SF Mono","Consolas","Menlo",monospace; font-weight:900; font-variant-numeric:tabular-nums; font-size:clamp(6rem, 16vw, 13rem); line-height:1; }
+  .team.a .team-score{ color:var(--team-a); }
+  .team.b .team-score{ color:var(--team-b); }
+
+  .center{ width:clamp(260px, 26vw, 380px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; border-left:1px solid var(--line); border-right:1px solid var(--line); padding:20px 16px; background:#000; }
+  .half-label{ font-size:1rem; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
+  .match-clock{ font-family:"SF Mono","Consolas","Menlo",monospace; font-variant-numeric:tabular-nums; font-weight:800; font-size:clamp(2.8rem, 4.6vw, 4.2rem); color:#fff; }
+  .match-clock.paused{ color:var(--muted); }
+
+  .raid-ring-wrap{ position:relative; width:clamp(120px,12vw,168px); height:clamp(120px,12vw,168px); display:flex; align-items:center; justify-content:center; border-radius:50%; transition:background .15s ease; }
+  .raid-ring-wrap svg{ position:absolute; inset:0; transform:rotate(-90deg); }
+  .raid-ring-bg{ fill:none; stroke:var(--line); stroke-width:9; }
+  .raid-ring-fg{ fill:none; stroke:var(--warn); stroke-width:9; stroke-linecap:round; transition:stroke .2s ease; }
+  .raid-ring-fg.low{ stroke:var(--danger); }
+  .raid-time{ font-family:"SF Mono","Consolas","Menlo",monospace; font-variant-numeric:tabular-nums; font-weight:900; font-size:clamp(1.9rem,3vw,2.7rem); color:#fff; }
+  .raid-time.low{ color:var(--danger); }
+  .raid-label{ font-size:0.8rem; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+
+  .raid-alert{ position:fixed; inset:0; z-index:40; display:none; pointer-events:none; background:rgba(190,0,0,0.42); animation:raidAlertPulse .55s ease-in-out infinite alternate; }
+  .raid-alert.show{ display:block; }
+  @keyframes raidAlertPulse{ from{ opacity:.35; } to{ opacity:.8; } }
+  .raid-critical .raid-time{ position:relative; z-index:41; color:#fff; font-size:clamp(4rem,10vw,9rem); text-shadow:0 0 14px #f00, 3px 3px 0 #700; }
+  .raid-critical .raid-label{ position:relative; z-index:41; color:#fff; }
+
+  .completion{ display:none; text-align:center; position:relative; z-index:12; }
+  .completion.show{ display:block; }
+  .completion-title{ color:var(--warn); font-size:clamp(1.1rem,2.4vw,1.8rem); font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+  .completion h1{ margin:0; font-size:clamp(2.2rem,6vw,5rem); letter-spacing:.08em; color:var(--warn); }
+  .completion .winner-label{ margin-top:8px; color:var(--muted); font-size:clamp(.9rem,2vw,1.2rem); letter-spacing:.12em; text-transform:uppercase; }
+  .completion .winner-name{ margin-top:4px; color:#fff; font-size:clamp(1.8rem,4vw,3.5rem); font-weight:900; text-transform:uppercase; }
+  .flowers{ display:none; position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:10; }
+  .flowers.show{ display:block; }
+  .flower{ position:absolute; top:-12vh; color:var(--warn); font-size:clamp(1.5rem,3vw,3rem); animation:flowerFall var(--fall-time) linear infinite; animation-delay:var(--delay); }
+  @keyframes flowerFall{ 0%{ transform:translate3d(0,-12vh,0) rotate(0deg); opacity:0; } 10%{ opacity:1; } 100%{ transform:translate3d(var(--drift),112vh,0) rotate(540deg); opacity:.85; } }
+
+  .conn-status{ position:fixed; bottom:10px; right:14px; font-size:0.7rem; color:var(--muted); }
+  .conn-status.live{ color:#3ddc84; }
+
+  @media (max-width:720px){
+    .board-wrap{ flex-direction:column; }
+    .center{ order:-1; border:none; border-bottom:1px solid var(--line); flex-direction:row; justify-content:space-between; padding:12px 16px; }
+    .team{ flex-direction:row; justify-content:space-between; padding:14px 24px; }
+  }
+</style>
+</head>
+<body>
+  <div class="board-wrap">
+    <div class="team a">
+      <div class="team-name outline-text" id="nameA">TEAM A</div>
+      <div class="team-score outline-text" id="scoreA">0</div>
+    </div>
+    <div class="center">
+      <div class="half-label" id="halfLabel">1ST HALF</div>
+      <div class="match-clock outline-text paused" id="matchClock">20:00</div>
+      <div class="raid-ring-wrap" id="raidRingWrap">
+        <svg viewBox="0 0 100 100">
+          <circle class="raid-ring-bg" cx="50" cy="50" r="42"></circle>
+          <circle class="raid-ring-fg" id="raidRingFg" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="0"></circle>
+        </svg>
+        <div class="raid-time outline-text" id="raidTime">30</div>
+      </div>
+      <div class="raid-label">Raid Clock</div>
+      <div class="completion" id="completion">
+        <div class="completion-title">Match Complete</div>
+        <div class="winner-label" id="winnerLabel">Winner</div>
+        <div class="winner-name" id="winnerName"></div>
+      </div>
+    </div>
+    <div class="team b">
+      <div class="team-name outline-text" id="nameB">TEAM B</div>
+      <div class="team-score outline-text" id="scoreB">0</div>
+    </div>
+  </div>
+
+  <div class="conn-status" id="connStatus">Waiting for control panel…</div>
+
+  <div class="raid-alert" id="raidAlert"></div>
+
+  <div class="flowers" id="flowers"></div>
+
+<script>
+  const STORAGE_KEY = 'kabaddi_scoreboard_state_v1';
+  const CIRC = 2 * Math.PI * 42;
+
+  let state = {
+    nameA: 'TEAM A', nameB: 'TEAM B',
+    scoreA: 0, scoreB: 0,
+    half: 1,
+    sideSwapped: false,
+    halfDurationMs: 20*60*1000,
+    raidDurationMs: 30*1000,
+    matchRunning: false, matchRemainingMs: 20*60*1000, matchEndAt: null,
+    raidRunning: false, raidRemainingMs: 30*1000, raidEndAt: null,
+    status: 'upcoming'
+  };
+
+  let channel = null;
+  let lastMessageAt = 0;
+  try{
+    channel = new BroadcastChannel('kabaddi_scoreboard_channel');
+    channel.onmessage = function(e){
+      if(e.data && e.data.type === 'state'){
+        state = e.data.payload;
+        lastMessageAt = Date.now();
+        applyState();
+      }
+    };
+    channel.postMessage({type:'requestState'});
+  } catch(e){ /* BroadcastChannel not supported in this browser */ }
+
+  function createFlowers(){
+    const flowers = document.getElementById('flowers');
+    const symbols = ['✿','❀','✾','✽'];
+    for(let index = 0; index < 20; index++){
+      const flower = document.createElement('span');
+      flower.className = 'flower';
+      flower.textContent = symbols[index % symbols.length];
+      flower.style.left = (index * 5 + Math.random() * 4) + '%';
+      flower.style.setProperty('--drift', (Math.random() * 160 - 80) + 'px');
+      flower.style.setProperty('--fall-time', (5 + Math.random() * 5) + 's');
+      flower.style.setProperty('--delay', (-Math.random() * 8) + 's');
+      flowers.appendChild(flower);
+    }
+  }
+
+  function loadFromStorage(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) state = Object.assign(state, JSON.parse(raw));
+    } catch(e){ /* ignore */ }
+  }
+
+  function formatTime(ms){
+    const totalSec = Math.max(0, Math.ceil(ms/1000));
+    const m = Math.floor(totalSec/60);
+    const s = totalSec % 60;
+    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+
+  function applyState(){
+    const leftTeam = state.sideSwapped ? 'B' : 'A';
+    const rightTeam = state.sideSwapped ? 'A' : 'B';
+    document.getElementById('nameA').textContent = state['name' + leftTeam];
+    document.getElementById('nameB').textContent = state['name' + rightTeam];
+    document.getElementById('scoreA').textContent = state['score' + leftTeam];
+    document.getElementById('scoreB').textContent = state['score' + rightTeam];
+    document.getElementById('halfLabel').textContent = state.half === 1 ? '1ST HALF' : '2ND HALF';
+
+    const completion = document.getElementById('completion');
+    const flowers = document.getElementById('flowers');
+    const isCompleted = state.status === 'completed';
+    if(isCompleted){
+      const winner = Number(state.scoreA) === Number(state.scoreB) ? 'Match Draw' : Number(state.scoreA) > Number(state.scoreB) ? state.nameA : state.nameB;
+      document.getElementById('winnerLabel').textContent = Number(state.scoreA) === Number(state.scoreB) ? 'Result' : 'Winning Team';
+      document.getElementById('winnerName').textContent = winner;
+      completion.classList.add('show');
+      flowers.classList.add('show');
+      return;
+    }
+    completion.classList.remove('show');
+    flowers.classList.remove('show');
+  }
+
+  function tick(){
+    let matchMs = state.matchRunning ? Math.max(0, state.matchEndAt - Date.now()) : state.matchRemainingMs;
+    const clockEl = document.getElementById('matchClock');
+    clockEl.textContent = formatTime(matchMs);
+    clockEl.classList.toggle('paused', !state.matchRunning);
+
+    let raidMs = state.raidRunning ? Math.max(0, state.raidEndAt - Date.now()) : state.raidRemainingMs;
+    const raidSecDisplay = Math.ceil(raidMs/1000);
+    document.getElementById('raidTime').textContent = raidSecDisplay;
+    const offset = CIRC * (1 - raidMs / state.raidDurationMs);
+    const fg = document.getElementById('raidRingFg');
+    fg.setAttribute('stroke-dashoffset', offset);
+    const low = raidSecDisplay <= 5 && raidSecDisplay > 0;
+    fg.classList.toggle('low', low);
+    document.getElementById('raidTime').classList.toggle('low', low);
+    const critical = state.raidRunning && raidSecDisplay <= 10 && raidSecDisplay > 0;
+    document.body.classList.toggle('raid-critical', critical);
+    document.getElementById('raidAlert').classList.toggle('show', critical);
+
+    const status = document.getElementById('connStatus');
+    if(lastMessageAt && Date.now() - lastMessageAt < 8000){
+      status.textContent = 'Live sync';
+      status.classList.add('live');
+    } else if(lastMessageAt){
+      status.textContent = 'Showing last known state';
+      status.classList.remove('live');
+    }
+  }
+
+  // Fallback: pick up changes via the storage event, which fires in other tabs/windows
+  // when localStorage changes (used if BroadcastChannel isn't available).
+  window.addEventListener('storage', function(e){
+    if(e.key === STORAGE_KEY && e.newValue){
+      try{ state = Object.assign(state, JSON.parse(e.newValue)); lastMessageAt = Date.now(); applyState(); } catch(err){}
+    }
+  });
+
+  createFlowers();
+  loadFromStorage();
+  applyState();
+  setInterval(tick, 200);
+</script>
+</body>
+</html>

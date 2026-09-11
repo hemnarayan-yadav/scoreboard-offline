@@ -7,81 +7,132 @@
 <style>
   :root{
     --bg:#000000;
-    --line:rgba(255,255,255,0.08);
+    --line:rgba(255,255,255,0.10);
     --team-a:#ff9100;
     --team-b:#00e5ff;
     --text:#ffffff;
     --muted:#8a94a3;
     --warn:#ffe000;
     --danger:#ff2b2b;
+    --raid-green:#00e676;
+    --score-font:"Bahnschrift Condensed","Arial Narrow","Impact","SF Mono","Consolas","Menlo",monospace;
+    --label-font:"Bahnschrift","Segoe UI",Helvetica,Arial,sans-serif;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
-  html,body{ height:100%; background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; overflow:hidden; }
+  html,body{ height:100%; background:var(--bg); color:var(--text); font-family:var(--label-font); overflow:hidden; }
   body{ display:flex; flex-direction:column; height:100vh; }
-  .board-wrap{ position:relative; flex:1; display:flex; min-height:0; background:#000; }
+  .board-wrap{ position:relative; flex:1; display:flex; min-height:0; background:radial-gradient(ellipse at center, #0a0a0a 0%, #000 70%); }
 
-  .team{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(10px,2vh,28px); position:relative; padding:20px; background:#000; }
-  .team.a::after, .team.b::after{ content:""; position:absolute; top:0; bottom:0; width:6px; }
-  .team.a::after{ right:0; background:var(--team-a); }
-  .team.b::after{ left:0; background:var(--team-b); }
+  .team{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(8px,2vh,26px); position:relative; padding:20px; background:#000; overflow:hidden; }
+  .team.a::after, .team.b::after{ content:""; position:absolute; top:0; bottom:0; width:8px; }
+  .team.a::after{ right:0; background:linear-gradient(180deg,var(--team-a),#c25f00); box-shadow:0 0 26px var(--team-a); }
+  .team.b::after{ left:0; background:linear-gradient(180deg,var(--team-b),#0089a3); box-shadow:0 0 26px var(--team-b); }
+  .team::before{ content:""; position:absolute; inset:0; opacity:.12; pointer-events:none; }
+  .team.a::before{ background:radial-gradient(circle at 70% 50%, var(--team-a), transparent 60%); }
+  .team.b::before{ background:radial-gradient(circle at 30% 50%, var(--team-b), transparent 60%); }
 
   .outline-text{
     text-shadow:
-      -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000,
-      -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000,
-      0 0 8px rgba(0,0,0,0.6);
+      -2px -2px 0 #000, 2px -2px 0 #000,
+      -2px 2px 0 #000, 2px 2px 0 #000,
+      0 0 10px rgba(0,0,0,0.6);
   }
 
-  .team-name{ font-size:clamp(1.3rem, 2.6vw, 2.2rem); font-weight:800; letter-spacing:0.06em; text-transform:uppercase; text-align:center; max-width:90%; }
+  .team-name{ font-family:var(--label-font); font-size:clamp(1.8rem, 3.6vw, 3.4rem); font-weight:700; letter-spacing:0.07em; text-transform:uppercase; text-align:center; max-width:94%; position:relative; z-index:1; transition:transform .35s ease, opacity .35s ease, font-size .35s ease; }
   .team.a .team-name{ color:var(--team-a); }
   .team.b .team-name{ color:var(--team-b); }
 
-  .team-score{ font-family:"SF Mono","Consolas","Menlo",monospace; font-weight:900; font-variant-numeric:tabular-nums; font-size:clamp(6rem, 16vw, 13rem); line-height:1; }
-  .team.a .team-score{ color:var(--team-a); }
-  .team.b .team-score{ color:var(--team-b); }
+  .team-score{ font-family:var(--score-font); font-weight:700; font-variant-numeric:tabular-nums; font-size:clamp(11rem, 26vw, 22rem); line-height:0.8; position:relative; z-index:1; transition:transform .35s cubic-bezier(.4,0,.2,1), opacity .35s ease; transform-origin:center; }
+  .team.a .team-score{ color:var(--team-a); text-shadow:0 0 50px rgba(255,145,0,0.4), -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; }
+  .team.b .team-score{ color:var(--team-b); text-shadow:0 0 50px rgba(0,229,255,0.4), -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; }
 
-  .center{ width:clamp(260px, 26vw, 380px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; border-left:1px solid var(--line); border-right:1px solid var(--line); padding:20px 16px; background:#000; }
-  .half-label{ font-size:1rem; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
-  .match-clock{ font-family:"SF Mono","Consolas","Menlo",monospace; font-variant-numeric:tabular-nums; font-weight:800; font-size:clamp(2.8rem, 4.6vw, 4.2rem); color:#fff; }
+  .center{ width:clamp(300px, 30vw, 440px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; border-left:1px solid var(--line); border-right:1px solid var(--line); padding:20px 16px; background:#000; position:relative; z-index:2; }
+  .half-label{ font-size:clamp(1.1rem,2.1vw,1.7rem); font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); transition:transform .35s ease, opacity .35s ease; }
+  .match-clock{ font-family:var(--score-font); font-variant-numeric:tabular-nums; font-weight:700; font-size:clamp(4rem, 6.6vw, 6.4rem); color:#fff; transition:transform .35s ease, opacity .35s ease; transform-origin:center; }
   .match-clock.paused{ color:var(--muted); }
+  body.timeout-active .match-clock{ color:var(--warn); }
 
-  .raid-ring-wrap{ position:relative; width:clamp(120px,12vw,168px); height:clamp(120px,12vw,168px); display:flex; align-items:center; justify-content:center; border-radius:50%; transition:background .15s ease; }
+  .raid-ring-wrap{ position:relative; width:clamp(140px,14vw,196px); height:clamp(140px,14vw,196px); display:flex; align-items:center; justify-content:center; border-radius:50%; transition:transform .35s cubic-bezier(.4,0,.2,1), opacity .35s ease, background .15s ease; transform-origin:center; }
   .raid-ring-wrap svg{ position:absolute; inset:0; transform:rotate(-90deg); }
   .raid-ring-bg{ fill:none; stroke:var(--line); stroke-width:9; }
-  .raid-ring-fg{ fill:none; stroke:var(--warn); stroke-width:9; stroke-linecap:round; transition:stroke .2s ease; }
-  .raid-ring-fg.low{ stroke:var(--danger); }
-  .raid-time{ font-family:"SF Mono","Consolas","Menlo",monospace; font-variant-numeric:tabular-nums; font-weight:900; font-size:clamp(1.9rem,3vw,2.7rem); color:#fff; }
-  .raid-time.low{ color:var(--danger); }
-  .raid-label{ font-size:0.8rem; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .raid-ring-fg{ fill:none; stroke:var(--raid-green); stroke-width:9; stroke-linecap:round; transition:stroke .25s ease; }
+  .raid-ring-fg.yellow{ stroke:var(--warn); }
+  .raid-ring-fg.red{ stroke:var(--danger); }
+  .raid-time{ font-family:var(--score-font); font-variant-numeric:tabular-nums; font-weight:700; font-size:clamp(2.6rem,4vw,3.6rem); color:var(--raid-green); transition:color .25s ease; }
+  .raid-time.yellow{ color:var(--warn); }
+  .raid-time.red{ color:var(--danger); }
+  .raid-label{ font-size:clamp(0.95rem,1.7vw,1.3rem); font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); transition:transform .35s ease, opacity .35s ease, color .25s ease; }
 
-  .raid-alert{ position:fixed; inset:0; z-index:40; display:none; pointer-events:none; background:rgba(190,0,0,0.42); animation:raidAlertPulse .55s ease-in-out infinite alternate; }
+  /* ---- Raid running: everything stays visible, just noticeably smaller than normal ---- */
+  body.raid-active .team-score{ transform:scale(0.72); opacity:0.9; }
+  body.raid-active .team-name{ transform:scale(0.85); opacity:0.9; }
+  /* the running half/match clock moves to the top-middle clock instead (see .raid-top-clock) */
+  body.raid-active .match-clock{ opacity:0; }
+  body.raid-active .half-label{ opacity:0; }
+  /* the small in-panel raid ring hands off to the big overlay version below */
+  body.raid-active .raid-ring-wrap{ opacity:0; transform:scale(0.6); }
+  body.raid-active .raid-label{ opacity:0; }
+
+  /* ---- Top-middle half/match clock, visible only while a raid is running ---- */
+  .raid-top-clock{ position:fixed; top:clamp(10px,2.4vh,26px); left:50%; transform:translateX(-50%) translateY(-8px); z-index:46; display:flex; flex-direction:column; align-items:center; gap:2px; background:rgba(0,0,0,0.55); border:1px solid var(--line); border-radius:14px; padding:8px 26px 10px; opacity:0; pointer-events:none; transition:opacity .3s ease, transform .3s ease; }
+  .raid-top-clock.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .raid-top-half{ font-size:clamp(0.85rem,1.6vw,1.15rem); font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
+  .raid-top-time{ font-family:var(--score-font); font-variant-numeric:tabular-nums; font-weight:700; font-size:clamp(1.8rem,3.2vw,2.6rem); color:#fff; line-height:0.9; }
+
+  .timeout-banner{ position:fixed; top:clamp(74px,11vh,130px); left:50%; transform:translateX(-50%) translateY(-10px); z-index:48; display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 34px 13px; border:1px solid rgba(255,224,0,.6); border-radius:8px; background:rgba(0,0,0,.72); box-shadow:0 0 34px rgba(255,224,0,.18); opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; }
+  .timeout-banner.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .timeout-title{ font-size:clamp(1.4rem,3vw,2.6rem); font-weight:900; letter-spacing:.16em; color:var(--warn); line-height:.95; text-transform:uppercase; }
+  .timeout-subtitle{ font-size:clamp(.8rem,1.45vw,1.05rem); font-weight:700; letter-spacing:.12em; color:#fff; text-transform:uppercase; }
+
+  .raid-alert{ position:fixed; inset:0; z-index:40; display:none; pointer-events:none; background:rgba(190,0,0,0.30); animation:raidAlertPulse .55s ease-in-out infinite alternate; }
   .raid-alert.show{ display:block; }
-  @keyframes raidAlertPulse{ from{ opacity:.35; } to{ opacity:.8; } }
-  .raid-critical .raid-time{ position:relative; z-index:41; color:#fff; font-size:clamp(4rem,10vw,9rem); text-shadow:0 0 14px #f00, 3px 3px 0 #700; }
-  .raid-critical .raid-label{ position:relative; z-index:41; color:#fff; }
+  @keyframes raidAlertPulse{ from{ opacity:.22; } to{ opacity:.55; } }
+
+  /* ---- Giant raid countdown, floats above the board without covering/dimming it ---- */
+  .raid-overlay{ position:fixed; top:50%; left:50%; z-index:45; display:flex; flex-direction:column; align-items:center; justify-content:center; transform:translate(-50%,-50%) scale(0.8); opacity:0; pointer-events:none; transition:opacity .3s ease, transform .35s cubic-bezier(.4,0,.2,1); }
+  .raid-overlay.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  body.timeout-active .raid-overlay.show{ opacity:.92; }
+  .raid-overlay-ring{ position:relative; width:min(78vh,78vw); height:min(78vh,78vw); display:flex; align-items:center; justify-content:center; }
+  .raid-overlay-ring::before{ content:""; position:absolute; inset:-4%; border-radius:50%; background:radial-gradient(circle, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.28) 55%, transparent 76%); z-index:-1; }
+  .raid-overlay-ring svg{ position:absolute; inset:0; transform:rotate(-90deg); }
+  .raid-overlay-bg{ fill:none; stroke:rgba(255,255,255,0.10); stroke-width:5; }
+  .raid-overlay-fg{ fill:none; stroke:var(--raid-green); stroke-width:5; stroke-linecap:round; transition:stroke .25s ease; filter:drop-shadow(0 0 14px currentColor); }
+  .raid-overlay-fg.yellow{ stroke:var(--warn); }
+  .raid-overlay-fg.red{ stroke:var(--danger); }
+  .raid-overlay-time{ font-family:var(--score-font); font-weight:700; line-height:0.78; font-variant-numeric:tabular-nums; font-size:min(40vh,40vw); color:var(--raid-green); text-shadow:0 0 90px currentColor, -5px -5px 0 #000, 5px -5px 0 #000, -5px 5px 0 #000, 5px 5px 0 #000; transition:color .25s ease; }
+  .raid-overlay-time.yellow{ color:var(--warn); }
+  .raid-overlay-time.red{ color:var(--danger); }
+  .raid-overlay-label{ margin-top:clamp(4px,1vh,14px); font-size:min(3.6vh,3.6vw); font-weight:900; letter-spacing:.3em; text-transform:uppercase; color:#fff; text-shadow:0 0 12px rgba(0,0,0,0.8); }
+
+  .raid-critical .raid-overlay-ring{ animation:raidPulseScale .5s ease-in-out infinite alternate; }
+  @keyframes raidPulseScale{ from{ transform:scale(1); } to{ transform:scale(1.06); } }
+
+  .conn-status{ position:fixed; bottom:12px; right:16px; font-size:0.8rem; font-weight:600; letter-spacing:0.04em; color:var(--muted); z-index:50; }
+  .conn-status.live{ color:#3ddc84; }
 
   .completion{ display:none; text-align:center; position:relative; z-index:12; }
   .completion.show{ display:block; }
-  .completion-title{ color:var(--warn); font-size:clamp(1.1rem,2.4vw,1.8rem); font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
-  .completion h1{ margin:0; font-size:clamp(2.2rem,6vw,5rem); letter-spacing:.08em; color:var(--warn); }
-  .completion .winner-label{ margin-top:8px; color:var(--muted); font-size:clamp(.9rem,2vw,1.2rem); letter-spacing:.12em; text-transform:uppercase; }
-  .completion .winner-name{ margin-top:4px; color:#fff; font-size:clamp(1.8rem,4vw,3.5rem); font-weight:900; text-transform:uppercase; }
+  .completion-title{ color:var(--warn); font-size:clamp(1.2rem,2.6vw,2rem); font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+  .completion h1{ margin:0; font-size:clamp(2.4rem,6.4vw,5.4rem); letter-spacing:.08em; color:var(--warn); }
+  .completion .winner-label{ margin-top:8px; color:var(--muted); font-size:clamp(1rem,2.2vw,1.4rem); letter-spacing:.12em; text-transform:uppercase; }
+  .completion .winner-name{ margin-top:4px; color:#fff; font-size:clamp(2rem,4.4vw,3.8rem); font-weight:900; text-transform:uppercase; }
   .flowers{ display:none; position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:10; }
   .flowers.show{ display:block; }
   .flower{ position:absolute; top:-12vh; color:var(--warn); font-size:clamp(1.5rem,3vw,3rem); animation:flowerFall var(--fall-time) linear infinite; animation-delay:var(--delay); }
   @keyframes flowerFall{ 0%{ transform:translate3d(0,-12vh,0) rotate(0deg); opacity:0; } 10%{ opacity:1; } 100%{ transform:translate3d(var(--drift),112vh,0) rotate(540deg); opacity:.85; } }
 
-  .conn-status{ position:fixed; bottom:10px; right:14px; font-size:0.7rem; color:var(--muted); }
-  .conn-status.live{ color:#3ddc84; }
-
   @media (max-width:720px){
     .board-wrap{ flex-direction:column; }
     .center{ order:-1; border:none; border-bottom:1px solid var(--line); flex-direction:row; justify-content:space-between; padding:12px 16px; }
     .team{ flex-direction:row; justify-content:space-between; padding:14px 24px; }
+    .team-score{ font-size:clamp(5rem,18vw,8.5rem); }
+    .team-name{ font-size:clamp(1.2rem,4vw,1.8rem); }
+    .raid-overlay-ring{ width:min(70vh,86vw); height:min(70vh,86vw); }
   }
 </style>
 </head>
 <body>
+
   <div class="board-wrap">
     <div class="team a">
       <div class="team-name outline-text" id="nameA">TEAM A</div>
@@ -110,6 +161,27 @@
     </div>
   </div>
 
+  <div class="raid-top-clock" id="raidTopClock">
+    <div class="raid-top-half" id="raidTopHalf">1ST HALF</div>
+    <div class="raid-top-time" id="raidTopTime">20:00</div>
+  </div>
+
+  <div class="raid-overlay" id="raidOverlay">
+    <div class="raid-overlay-ring">
+      <svg viewBox="0 0 100 100">
+        <circle class="raid-overlay-bg" cx="50" cy="50" r="46"></circle>
+        <circle class="raid-overlay-fg" id="raidOverlayFg" cx="50" cy="50" r="46" stroke-dasharray="289" stroke-dashoffset="0"></circle>
+      </svg>
+      <div class="raid-overlay-time outline-text" id="raidOverlayTime">30</div>
+    </div>
+    <div class="raid-overlay-label">Raid Clock</div>
+  </div>
+
+  <div class="timeout-banner" id="timeoutBanner">
+    <div class="timeout-title">TIME OUT</div>
+    <div class="timeout-subtitle">CLOCK PAUSED</div>
+  </div>
+
   <div class="conn-status" id="connStatus">Waiting for control panel…</div>
 
   <div class="raid-alert" id="raidAlert"></div>
@@ -119,6 +191,7 @@
 <script>
   const STORAGE_KEY = 'kabaddi_scoreboard_state_v1';
   const CIRC = 2 * Math.PI * 42;
+  const CIRC_OVERLAY = 2 * Math.PI * 46;
 
   let state = {
     nameA: 'TEAM A', nameB: 'TEAM B',
@@ -129,18 +202,23 @@
     raidDurationMs: 30*1000,
     matchRunning: false, matchRemainingMs: 20*60*1000, matchEndAt: null,
     raidRunning: false, raidRemainingMs: 30*1000, raidEndAt: null,
+    timeoutActive: false, timeoutMatchWasRunning: false, timeoutRaidWasRunning: false,
+    sirenActive: false, sirenNonce: 0, sirenAt: null,
     status: 'upcoming'
   };
+  const DEFAULT_STATE = Object.assign({}, state);
 
   let channel = null;
   let lastMessageAt = 0;
+  let lastSirenNonce = 0;
   try{
     channel = new BroadcastChannel('kabaddi_scoreboard_channel');
     channel.onmessage = function(e){
       if(e.data && e.data.type === 'state'){
-        state = e.data.payload;
+        state = Object.assign({}, DEFAULT_STATE, e.data.payload);
         lastMessageAt = Date.now();
         applyState();
+        handleSirenEvent();
       }
     };
     channel.postMessage({type:'requestState'});
@@ -164,7 +242,7 @@
   function loadFromStorage(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) state = Object.assign(state, JSON.parse(raw));
+      if(raw) state = Object.assign({}, DEFAULT_STATE, JSON.parse(raw));
     } catch(e){ /* ignore */ }
   }
 
@@ -199,24 +277,284 @@
     flowers.classList.remove('show');
   }
 
+  /* ---------------- Raid countdown audio: energetic spoken numbers + buzzer, auto-plays ---------------- */
+  let audioCtx = null;
+  let trackedRaidEndAt = null;
+  let lastRaidSecondPlayed = null;
+  let raidBuzzerPlayed = false;
+  let speechVoice = null;
+  let activeCountAudio = null;
+  let sirenRunning = false;
+  let sirenTimer = null;
+  let sirenNodes = [];
+  const SIREN_VOLUME = 0.42;
+
+  function ensureAudio(){
+    if(audioCtx) return;
+    try{
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if(audioCtx.state === 'suspended'){ audioCtx.resume(); }
+    }catch(e){ /* unsupported */ }
+  }
+  function pickSpeechVoice(){
+    if(!window.speechSynthesis) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if(!voices || !voices.length) return null;
+    // Prefer a lively-sounding English voice
+    return voices.find(v => /male/i.test(v.name) && /^en/i.test(v.lang))
+      || voices.find(v => /en-IN/i.test(v.lang))
+      || voices.find(v => /^en/i.test(v.lang))
+      || voices[0];
+  }
+  if(window.speechSynthesis){
+    speechVoice = pickSpeechVoice();
+    window.speechSynthesis.onvoiceschanged = function(){ speechVoice = pickSpeechVoice(); };
+  }
+
+  // Try to unblock audio proactively on load (no click required for the voice on most browsers).
+  ensureAudio();
+  // Any interaction the operator happens to make also nudges playback along, but nothing waits for it.
+  ['pointerdown','keydown','touchstart'].forEach(function(evt){
+    window.addEventListener(evt, function(){
+      ensureAudio();
+      if(window.speechSynthesis && window.speechSynthesis.paused){ window.speechSynthesis.resume(); }
+    }, {passive:true});
+  });
+
+  function speak(text, rate, pitch){
+    if(!window.speechSynthesis) return;
+    try{
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = rate || 1;
+      utter.pitch = pitch || 1;
+      utter.volume = 1;
+      if(speechVoice) utter.voice = speechVoice;
+      window.speechSynthesis.speak(utter);
+    } catch(e){ /* ignore */ }
+  }
+
+  /* Recorded countdown audio files live in assets/audio/1-kabaddi.mp3 through 10-kabaddi.mp3. */
+  const RAID_AUDIO_COUNT = 10;
+  const raidAudioEls = {};
+  const raidAudioMissing = {};
+  for(let n = 1; n <= RAID_AUDIO_COUNT; n++){
+    const el = new Audio('assets/audio/' + n + '-kabaddi.mp3');
+    el.preload = 'auto';
+    el.addEventListener('error', (function(num){ return function(){ raidAudioMissing[num] = true; }; })(n));
+    raidAudioEls[n] = el;
+  }
+
+  function stopCountdownSounds(){
+    if(activeCountAudio){
+      try{
+        activeCountAudio.pause();
+        activeCountAudio.currentTime = 0;
+      } catch(e){ /* ignore */ }
+      activeCountAudio = null;
+    }
+    if(window.speechSynthesis){
+      try{ window.speechSynthesis.cancel(); } catch(e){ /* ignore */ }
+    }
+  }
+
+  function playCountSound(n){
+    const el = raidAudioEls[n];
+    const rate = n <= 3 ? 1.35 : n <= 6 ? 1.22 : 1.12;
+    const pitch = n <= 3 ? 1.4 : 1.25;
+    if(el && !raidAudioMissing[n]){
+      try{
+        if(activeCountAudio && activeCountAudio !== el){
+          activeCountAudio.pause();
+          activeCountAudio.currentTime = 0;
+        }
+        activeCountAudio = el;
+        el.currentTime = 0;
+        const p = el.play();
+        if(p && p.catch){
+          p.catch(function(){ speak(String(n) + '!', rate, pitch); });
+        }
+        return;
+      } catch(e){ /* fall through to speech */ }
+    }
+    speak(String(n) + '!', rate, pitch);
+  }
+
+  function scheduleSirenSweep(){
+    if(!audioCtx || !sirenRunning) return;
+    const now = audioCtx.currentTime;
+    sirenNodes.forEach(function(node, index){
+      const high = index === 0 ? 1220 : 610;
+      const low = index === 0 ? 430 : 215;
+      const mid = index === 0 ? 800 : 400;
+      try{
+        if(node.frequency.cancelScheduledValues) node.frequency.cancelScheduledValues(now);
+        node.frequency.setValueAtTime(low, now);
+        node.frequency.linearRampToValueAtTime(high, now + 0.30);
+        node.frequency.linearRampToValueAtTime(mid, now + 0.52);
+        node.frequency.linearRampToValueAtTime(low, now + 0.78);
+      } catch(e){ /* ignore */ }
+    });
+  }
+
+  function startSiren(){
+    if(sirenRunning) return;
+    ensureAudio();
+    if(!audioCtx) return;
+    try{
+      if(sirenNodes.length) stopSiren();
+      sirenRunning = true;
+      const now = audioCtx.currentTime;
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(SIREN_VOLUME, now + 0.08);
+      gain.connect(audioCtx.destination);
+
+      const highOsc = audioCtx.createOscillator();
+      highOsc.type = 'sawtooth';
+      highOsc.connect(gain);
+      highOsc.start(now);
+
+      const lowOsc = audioCtx.createOscillator();
+      lowOsc.type = 'square';
+      lowOsc.connect(gain);
+      lowOsc.start(now);
+
+      sirenNodes = [highOsc, lowOsc];
+      sirenNodes.masterGain = gain;
+      scheduleSirenSweep();
+      sirenTimer = setInterval(scheduleSirenSweep, 760);
+    } catch(e){
+      sirenRunning = false;
+      sirenNodes = [];
+      if(sirenTimer) clearInterval(sirenTimer);
+      sirenTimer = null;
+    }
+  }
+
+  function stopSiren(){
+    if(sirenTimer) clearInterval(sirenTimer);
+    sirenTimer = null;
+    if(!sirenRunning && !sirenNodes.length) return;
+    sirenRunning = false;
+    try{
+      const now = audioCtx ? audioCtx.currentTime : 0;
+      const gain = sirenNodes.masterGain;
+      if(gain && gain.gain){
+        if(gain.gain.cancelScheduledValues) gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(SIREN_VOLUME, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + 0.06);
+      }
+      sirenNodes.forEach(function(node){
+        try{ node.stop(now + 0.08); } catch(e){ /* ignore */ }
+      });
+    } catch(e){ /* ignore */ }
+    sirenNodes = [];
+  }
+
+  function syncSiren(){
+    if(state.sirenActive) startSiren();
+    else stopSiren();
+  }
+
+  function handleSirenEvent(){
+    const sirenNonce = Number(state.sirenNonce) || 0;
+    if(sirenNonce !== lastSirenNonce){
+      lastSirenNonce = sirenNonce;
+    }
+    syncSiren();
+  }
+
+  function playRaidBuzzer(){
+    ensureAudio();
+    if(!audioCtx) return;
+    const now = audioCtx.currentTime;
+    [0, 0.22].forEach(function(offset){
+      try{
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(190, now + offset);
+        gain.gain.setValueAtTime(0.001, now + offset);
+        gain.gain.linearRampToValueAtTime(0.3, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.2);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.22);
+      } catch(e){ /* ignore */ }
+    });
+  }
+
+  function handleRaidAudio(raidSecDisplay){
+    if(state.raidRunning){
+      if(trackedRaidEndAt !== state.raidEndAt){
+        trackedRaidEndAt = state.raidEndAt;
+        lastRaidSecondPlayed = null;
+        raidBuzzerPlayed = false;
+      }
+      // Countdown starts automatically once the clock drops below 11 (i.e. from 10 down to 1)
+      if(raidSecDisplay >= 1 && raidSecDisplay <= 10 && raidSecDisplay !== lastRaidSecondPlayed){
+        lastRaidSecondPlayed = raidSecDisplay;
+        playCountSound(raidSecDisplay);
+      }
+      if(raidSecDisplay <= 0 && !raidBuzzerPlayed){
+        raidBuzzerPlayed = true;
+        playRaidBuzzer();
+        speak("Time's up!", 1.1, 0.8);
+      }
+    } else {
+      if(trackedRaidEndAt !== null) stopCountdownSounds();
+      trackedRaidEndAt = null;
+      lastRaidSecondPlayed = null;
+      raidBuzzerPlayed = false;
+    }
+  }
+
   function tick(){
     let matchMs = state.matchRunning ? Math.max(0, state.matchEndAt - Date.now()) : state.matchRemainingMs;
     const clockEl = document.getElementById('matchClock');
     clockEl.textContent = formatTime(matchMs);
-    clockEl.classList.toggle('paused', !state.matchRunning);
+    clockEl.classList.toggle('paused', !state.matchRunning || state.timeoutActive);
+
+    document.getElementById('raidTopHalf').textContent = state.half === 1 ? '1ST HALF' : '2ND HALF';
+    document.getElementById('raidTopTime').textContent = formatTime(matchMs);
+    const raidVisible = state.raidRunning || (state.timeoutActive && state.timeoutRaidWasRunning);
+    document.getElementById('raidTopClock').classList.toggle('show', raidVisible);
 
     let raidMs = state.raidRunning ? Math.max(0, state.raidEndAt - Date.now()) : state.raidRemainingMs;
     const raidSecDisplay = Math.ceil(raidMs/1000);
+
     document.getElementById('raidTime').textContent = raidSecDisplay;
+    document.getElementById('raidOverlayTime').textContent = raidSecDisplay;
+
     const offset = CIRC * (1 - raidMs / state.raidDurationMs);
-    const fg = document.getElementById('raidRingFg');
-    fg.setAttribute('stroke-dashoffset', offset);
-    const low = raidSecDisplay <= 5 && raidSecDisplay > 0;
-    fg.classList.toggle('low', low);
-    document.getElementById('raidTime').classList.toggle('low', low);
-    const critical = state.raidRunning && raidSecDisplay <= 10 && raidSecDisplay > 0;
+    document.getElementById('raidRingFg').setAttribute('stroke-dashoffset', offset);
+    const offsetOverlay = CIRC_OVERLAY * (1 - raidMs / state.raidDurationMs);
+    document.getElementById('raidOverlayFg').setAttribute('stroke-dashoffset', offsetOverlay);
+
+    // Tri-colour zones: >20s green, 11-20s yellow, <=10s red
+    const isYellow = raidSecDisplay <= 20 && raidSecDisplay > 10;
+    const isRed = raidSecDisplay <= 10 && raidSecDisplay >= 0;
+    [document.getElementById('raidRingFg'), document.getElementById('raidOverlayFg')].forEach(function(el){
+      el.classList.toggle('yellow', isYellow);
+      el.classList.toggle('red', isRed);
+    });
+    [document.getElementById('raidTime'), document.getElementById('raidOverlayTime')].forEach(function(el){
+      el.classList.toggle('yellow', isYellow);
+      el.classList.toggle('red', isRed);
+    });
+
+    document.body.classList.toggle('raid-active', raidVisible);
+    document.getElementById('raidOverlay').classList.toggle('show', raidVisible);
+
+    const critical = state.raidRunning && !state.timeoutActive && raidSecDisplay <= 10 && raidSecDisplay > 0;
     document.body.classList.toggle('raid-critical', critical);
     document.getElementById('raidAlert').classList.toggle('show', critical);
+    document.body.classList.toggle('timeout-active', !!state.timeoutActive);
+    document.getElementById('timeoutBanner').classList.toggle('show', !!state.timeoutActive);
+
+    handleRaidAudio(raidSecDisplay);
+    handleSirenEvent();
 
     const status = document.getElementById('connStatus');
     if(lastMessageAt && Date.now() - lastMessageAt < 8000){
@@ -232,13 +570,20 @@
   // when localStorage changes (used if BroadcastChannel isn't available).
   window.addEventListener('storage', function(e){
     if(e.key === STORAGE_KEY && e.newValue){
-      try{ state = Object.assign(state, JSON.parse(e.newValue)); lastMessageAt = Date.now(); applyState(); } catch(err){}
+      try{
+        state = Object.assign({}, DEFAULT_STATE, JSON.parse(e.newValue));
+        lastMessageAt = Date.now();
+        applyState();
+        handleSirenEvent();
+      } catch(err){}
     }
   });
 
   createFlowers();
   loadFromStorage();
+  lastSirenNonce = Number(state.sirenNonce) || 0;
   applyState();
+  syncSiren();
   setInterval(tick, 200);
 </script>
 </body>

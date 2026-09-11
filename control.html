@@ -41,6 +41,7 @@
   .preview .raid{ font-size:0.85rem; color:var(--warn); font-weight:700; margin-top:6px; }
   .preview .status-pill{ display:inline-block; margin-top:8px; font-size:0.68rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; padding:3px 10px; border-radius:20px; border:1px solid var(--muted); color:var(--muted); }
   .preview .status-pill.live{ color:#04140a; background:var(--ok); border-color:var(--ok); }
+  .preview .status-pill.timeout{ color:#1a1400; background:var(--warn); border-color:var(--warn); }
   .preview .status-pill.completed{ color:#04140a; background:var(--warn); border-color:var(--warn); }
 
   .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
@@ -70,6 +71,7 @@
 
   .half-card{ grid-column:span 1; }
   .clock-action.active{ background:var(--ok); color:#04140a; border-color:var(--ok); }
+  .timeout-action.active{ background:var(--danger); color:#fff; border-color:var(--danger); }
   .card-note{ color:var(--muted); font-size:.8rem; margin-top:10px; line-height:1.5; }
 
   .btn-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
@@ -84,6 +86,7 @@
   button.action.warn{ background:var(--warn); color:#1a1400; border-color:var(--warn); }
   button.action.danger{ background:transparent; color:var(--danger); border-color:var(--danger); }
   button.action.done{ background:var(--ok); color:#04140a; border-color:var(--ok); }
+  button.action.siren-action.active{ background:var(--danger); color:#fff; border-color:var(--danger); }
 
   .settings-label{ display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--text); }
   .settings-input{
@@ -204,6 +207,8 @@
       <div class="btn-row">
         <button class="action clock-action" id="startFirstHalfBtn" onclick="startHalf(1)">Start 1st Half</button>
         <button class="action clock-action" id="startSecondHalfBtn" onclick="startHalf(2)">Start 2nd Half</button>
+        <button class="action timeout-action" id="timeoutBtn" onclick="toggleTimeout()">Time Out</button>
+        <button class="action warn siren-action" id="sirenBtn" onclick="triggerSiren()">Siren</button>
       </div>
       <div class="card-note">Half buttons unlock once the match is live.</div>
     </div>
@@ -247,8 +252,11 @@
     raidDurationMs: DEFAULT_RAID_MS,
     matchRunning: false, matchRemainingMs: DEFAULT_HALF_MS, matchEndAt: null,
     raidRunning: false, raidRemainingMs: DEFAULT_RAID_MS, raidEndAt: null,
+    timeoutActive: false, timeoutMatchWasRunning: false, timeoutRaidWasRunning: false,
+    sirenActive: false, sirenNonce: 0, sirenAt: null,
     overlayText: null
   };
+  const DEFAULT_STATE = Object.assign({}, state);
 
   let channel = null;
   try{
@@ -276,7 +284,7 @@
   function loadState(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) state = Object.assign(state, JSON.parse(raw));
+      if(raw) state = Object.assign({}, DEFAULT_STATE, JSON.parse(raw));
     } catch(e){}
   }
 
@@ -296,6 +304,18 @@
   function displayedTeam(side){ return state.sideSwapped ? (side === 'A' ? 'B' : 'A') : side; }
   function changeDisplayedScore(side, delta){ changeScore(displayedTeam(side), delta); }
 
+  function syncRunningTimers(){
+    const now = Date.now();
+    if(state.matchRunning) state.matchRemainingMs = Math.max(0, state.matchEndAt - now);
+    if(state.raidRunning) state.raidRemainingMs = Math.max(0, state.raidEndAt - now);
+  }
+
+  function clearTimeoutState(){
+    state.timeoutActive = false;
+    state.timeoutMatchWasRunning = false;
+    state.timeoutRaidWasRunning = false;
+  }
+
   function goLive(){
     if(state.status !== 'upcoming') return;
     state.status = 'live';
@@ -303,7 +323,7 @@
   }
 
   function startHalf(half){
-    if(state.status !== 'live' || state.matchRunning) return;
+    if(state.status !== 'live' || state.matchRunning || state.raidRunning || state.timeoutActive) return;
     state.half = half;
     state.sideSwapped = half === 2;
     state.matchRemainingMs = state.halfDurationMs;
@@ -311,17 +331,19 @@
     state.matchRunning = true;
     state.overlayText = null;
     state.raidRunning = false; state.raidEndAt = null; state.raidRemainingMs = DEFAULT_RAID_MS;
+    clearTimeoutState();
     render(); broadcastState();
   }
   function handleMatchEnd(){
     state.matchRunning = false; state.matchEndAt = null; state.matchRemainingMs = 0;
+    clearTimeoutState();
     state.overlayText = state.half === 1 ? 'HALF TIME' : 'FULL TIME';
     beep(880,500);
     render(); broadcastState();
   }
 
   function startOrClearRaid(){
-    if(state.status !== 'live') return;
+    if(state.status !== 'live' || state.timeoutActive || (!state.matchRunning && !state.raidRunning)) return;
     if(state.raidRunning){
       state.raidRunning = false; state.raidEndAt = null; state.raidRemainingMs = DEFAULT_RAID_MS;
     } else {
@@ -330,7 +352,7 @@
     render(); broadcastState();
   }
   function stopRaid(){
-    if(state.status !== 'live') return;
+    if(state.status !== 'live' || state.timeoutActive) return;
     state.raidRunning = false; state.raidEndAt = null; state.raidRemainingMs = DEFAULT_RAID_MS;
     render(); broadcastState();
   }
@@ -340,13 +362,46 @@
     render(); broadcastState();
   }
 
+  function toggleTimeout(){
+    if(state.status !== 'live') return;
+
+    if(state.timeoutActive){
+      const now = Date.now();
+      state.timeoutActive = false;
+      if(state.timeoutMatchWasRunning && state.matchRemainingMs > 0){
+        state.matchRunning = true;
+        state.matchEndAt = now + state.matchRemainingMs;
+      }
+      if(state.timeoutRaidWasRunning && state.raidRemainingMs > 0){
+        state.raidRunning = true;
+        state.raidEndAt = now + state.raidRemainingMs;
+      }
+      state.timeoutMatchWasRunning = false;
+      state.timeoutRaidWasRunning = false;
+      state.overlayText = null;
+    } else {
+      if(!state.matchRunning && !state.raidRunning) return;
+      syncRunningTimers();
+      state.timeoutMatchWasRunning = state.matchRunning;
+      state.timeoutRaidWasRunning = state.raidRunning;
+      state.matchRunning = false;
+      state.matchEndAt = null;
+      state.raidRunning = false;
+      state.raidEndAt = null;
+      state.timeoutActive = true;
+      state.overlayText = 'TIME OUT';
+    }
+
+    render(); broadcastState();
+  }
+
   function completeMatch(){
     if(state.status !== 'live') return;
+    syncRunningTimers();
     state.status = 'completed';
-    state.matchRemainingMs = state.matchRunning ? Math.max(0, state.matchEndAt - Date.now()) : state.matchRemainingMs;
     state.matchRunning = false; state.matchEndAt = null;
-    state.raidRemainingMs = state.raidRunning ? Math.max(0, state.raidEndAt - Date.now()) : state.raidRemainingMs;
     state.raidRunning = false; state.raidEndAt = null;
+    clearTimeoutState();
     state.overlayText = 'FULL TIME';
     render(); broadcastState();
   }
@@ -361,23 +416,119 @@
       halfDurationMs: keepHalf, raidDurationMs: DEFAULT_RAID_MS,
       matchRunning:false, matchRemainingMs:keepHalf, matchEndAt:null,
       raidRunning:false, raidRemainingMs:DEFAULT_RAID_MS, raidEndAt:null,
+      timeoutActive:false, timeoutMatchWasRunning:false, timeoutRaidWasRunning:false,
+      sirenActive:false, sirenNonce:0, sirenAt:null,
       overlayText:null
     };
+    stopSiren();
     document.getElementById('nameA').value = state.nameA;
     document.getElementById('nameB').value = state.nameB;
     render(); broadcastState();
   }
 
   let audioCtx = null;
+  let sirenRunning = false;
+  let sirenTimer = null;
+  let sirenNodes = [];
+
+  function ensureAudio(){
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
   function beep(freq, duration){
     try{
-      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+      const ctx = ensureAudio();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type='square'; osc.frequency.value=freq; gain.gain.value=0.08;
-      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.connect(gain); gain.connect(ctx.destination);
       osc.start(); setTimeout(()=>osc.stop(), duration);
     } catch(e){}
+  }
+
+  function scheduleSirenSweep(){
+    if(!audioCtx || !sirenRunning) return;
+    const now = audioCtx.currentTime;
+    sirenNodes.forEach(function(node, index){
+      const high = index === 0 ? 1180 : 590;
+      const low = index === 0 ? 420 : 210;
+      const mid = index === 0 ? 760 : 380;
+      try{
+        if(node.frequency.cancelScheduledValues) node.frequency.cancelScheduledValues(now);
+        node.frequency.setValueAtTime(low, now);
+        node.frequency.linearRampToValueAtTime(high, now + 0.30);
+        node.frequency.linearRampToValueAtTime(mid, now + 0.52);
+        node.frequency.linearRampToValueAtTime(low, now + 0.78);
+      } catch(e){}
+    });
+  }
+
+  function startSiren(){
+    if(sirenRunning) return;
+    try{
+      if(sirenNodes.length) stopSiren();
+      const ctx = ensureAudio();
+      sirenRunning = true;
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.34, now + 0.08);
+      gain.connect(ctx.destination);
+
+      const highOsc = ctx.createOscillator();
+      highOsc.type = 'sawtooth';
+      highOsc.connect(gain);
+      highOsc.start(now);
+
+      const lowOsc = ctx.createOscillator();
+      lowOsc.type = 'square';
+      lowOsc.connect(gain);
+      lowOsc.start(now);
+
+      sirenNodes = [highOsc, lowOsc];
+      sirenNodes.masterGain = gain;
+      scheduleSirenSweep();
+      sirenTimer = setInterval(scheduleSirenSweep, 760);
+    } catch(e){
+      sirenRunning = false;
+      sirenNodes = [];
+      if(sirenTimer) clearInterval(sirenTimer);
+      sirenTimer = null;
+    }
+  }
+
+  function stopSiren(){
+    if(sirenTimer) clearInterval(sirenTimer);
+    sirenTimer = null;
+    if(!sirenRunning && !sirenNodes.length) return;
+    sirenRunning = false;
+    try{
+      const now = audioCtx ? audioCtx.currentTime : 0;
+      const gain = sirenNodes.masterGain;
+      if(gain && gain.gain){
+        if(gain.gain.cancelScheduledValues) gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(0.34, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + 0.06);
+      }
+      sirenNodes.forEach(function(node){
+        try{ node.stop(now + 0.08); } catch(e){}
+      });
+    } catch(e){}
+    sirenNodes = [];
+  }
+
+  function syncSiren(){
+    if(state.sirenActive) startSiren();
+    else stopSiren();
+  }
+
+  function triggerSiren(){
+    state.sirenActive = !state.sirenActive;
+    state.sirenNonce = (Number(state.sirenNonce) || 0) + 1;
+    state.sirenAt = Date.now();
+    syncSiren();
+    render(); broadcastState();
   }
 
   document.getElementById('nameA').addEventListener('input', function(){
@@ -424,16 +575,17 @@
 
     let raidMs = state.raidRunning ? Math.max(0, state.raidEndAt - Date.now()) : state.raidRemainingMs;
     if(state.raidRunning && raidMs <= 0){ handleRaidEnd(); return; }
-    document.getElementById('pvRaid').textContent = 'Raid: ' + Math.ceil(raidMs/1000);
+    const raidPaused = state.timeoutActive && state.timeoutRaidWasRunning;
+    document.getElementById('pvRaid').textContent = 'Raid: ' + Math.ceil(raidMs/1000) + (raidPaused ? ' Paused' : '');
 
     const raidBtn = document.getElementById('raidBtn');
     raidBtn.textContent = state.raidRunning ? 'Clear Raid' : 'Start Raid';
-    raidBtn.disabled = state.status !== 'live';
-    document.getElementById('stopRaidBtn').disabled = state.status !== 'live';
+    raidBtn.disabled = state.status !== 'live' || state.timeoutActive || (!state.matchRunning && !state.raidRunning);
+    document.getElementById('stopRaidBtn').disabled = state.status !== 'live' || state.timeoutActive || !state.raidRunning;
 
     const pill = document.getElementById('statusPill');
-    pill.textContent = state.status === 'live' ? 'Live' : state.status === 'completed' ? 'Completed' : 'Not started';
-    pill.className = 'status-pill ' + state.status;
+    pill.textContent = state.timeoutActive ? 'Time Out' : state.status === 'live' ? 'Live' : state.status === 'completed' ? 'Completed' : 'Not started';
+    pill.className = 'status-pill ' + (state.timeoutActive ? 'timeout' : state.status);
 
     const goLiveBtn = document.getElementById('goLiveBtn');
     goLiveBtn.disabled = state.status !== 'upcoming';
@@ -446,6 +598,15 @@
 
     document.getElementById('clearAllBtn').disabled = state.status !== 'completed';
 
+    const timeoutBtn = document.getElementById('timeoutBtn');
+    timeoutBtn.disabled = state.status !== 'live' || (!state.timeoutActive && !state.matchRunning && !state.raidRunning);
+    timeoutBtn.textContent = state.timeoutActive ? 'Resume Match' : 'Time Out';
+    timeoutBtn.classList.toggle('active', state.timeoutActive);
+
+    const sirenBtn = document.getElementById('sirenBtn');
+    sirenBtn.textContent = state.sirenActive ? 'Stop Siren' : 'Siren';
+    sirenBtn.classList.toggle('active', state.sirenActive);
+
     document.getElementById('halfMinInput').disabled = state.status !== 'upcoming';
     document.getElementById('nameA').disabled = state.status === 'completed';
     document.getElementById('nameB').disabled = state.status === 'completed';
@@ -454,8 +615,8 @@
     const secondHalfButton = document.getElementById('startSecondHalfBtn');
     firstHalfButton.classList.toggle('active', state.half === 1 && state.matchRunning);
     secondHalfButton.classList.toggle('active', state.half === 2 && state.matchRunning);
-    firstHalfButton.disabled = state.status !== 'live' || state.matchRunning || state.half !== 1 || state.matchRemainingMs === 0;
-    secondHalfButton.disabled = state.status !== 'live' || state.matchRunning || state.half !== 1 || state.matchRemainingMs > 0;
+    firstHalfButton.disabled = state.status !== 'live' || state.timeoutActive || state.matchRunning || state.half !== 1 || state.matchRemainingMs === 0;
+    secondHalfButton.disabled = state.status !== 'live' || state.timeoutActive || state.matchRunning || state.raidRunning || state.half !== 1 || state.matchRemainingMs > 0;
   }
 
   loadState();
@@ -463,6 +624,7 @@
   document.getElementById('nameB').value = state.nameB;
   document.getElementById('halfMinInput').value = state.halfDurationMs / 60000;
   render();
+  syncSiren();
   broadcastState();
   setInterval(render, 250);
 </script>
